@@ -1,2 +1,2 @@
-# -FedRL-Recommendation-Client
+# FedRL-Recommendation-Client
 Client for Federeated Reinforcement Learning for Recommendation Systems
