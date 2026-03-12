@@ -1,4 +1,4 @@
-# FedRL-Recommendation-Client
+## FedRL-Recommendation-Client
 
 Federated Reinforcement Learning client for sustainable food recommendations.
 Each client runs as a pair of Docker containers: a **FastAPI backend** (Python) and a **Vue 3 + TypeScript frontend** served by Nginx.
@@ -13,9 +13,12 @@ Each client runs as a pair of Docker containers: a **FastAPI backend** (Python) 
 export PI_HOST=<pi-ip>   # replace "<pi-ip>" with your Pi's IP
 ```
 
-### 2. Edit server URL in configs
+### 2. Edit per‑client config
 
-Edit `config/client_1.yaml` (and client_2, client_3) — set `server_url` to your FL server's IP.
+Edit `config/client_1.yaml` (and `client_2.yaml`, `client_3.yaml`) and set:
+- **`server_url`**: base URL of your FL server (no `/api/...` suffix).
+- **`api_version`**: API version path segment (e.g. `v1`), used to build `SERVER_URL = server_url + "/api/" + api_version` inside the client.
+- Optional model/sync settings as documented in the config files.
 
 ### 3. Build and run
 
@@ -35,8 +38,8 @@ docker compose up --build
 
 ## Project Structure
 
-```
-fedrl-client/
+```text
+FedRL-Recommendation-Client/
 ├── Dockerfile.api          # Python 3.11 + FastAPI backend
 ├── Dockerfile.ui           # Vue 3 TS → Nginx static
 ├── docker-compose.yml      # Multi-client orchestration
@@ -45,16 +48,17 @@ fedrl-client/
 ├── api/
 │   ├── main.py             # FastAPI entrypoint (JSON endpoints)
 │   ├── rl/
-│   │   ├── backbone.py     # Shared backbone (PyTorch, federated)
-│   │   ├── local_head.py   # Item/Price/Nudge heads (never leaves device)
-│   │   ├── model_manager.py
-│   │   ├── context.py      # Context vector builder (16-dim)
-│   │   └── reward.py       # Reward function
+│   │   ├── backbone.py         # Shared backbone (PyTorch, federated)
+│   │   ├── local_head.py       # Item/Price/Nudge heads (never leaves device)
+│   │   ├── model_manager.py    # Backbone + local heads, save/load
+│   │   ├── context.py          # Context vector builder (16-dim)
+│   │   └── reward.py           # Reward function
 │   ├── sync/
-│   │   └── sync_agent.py   # Background federation upload/download
+│   │   └── sync_agent.py       # Background federation upload/download
 │   ├── storage/
+│   │   ├── models.py           # FoodItem / FoodCategory / SubstitutionGroup dataclasses
 │   │   ├── interaction_logger.py   # SQLite (on-device only)
-│   │   └── catalogue.py      # In-memory + disk cache
+│   │   └── catalogue.py            # Catalogue cache + versioned snapshot sync
 │   └── nudges/
 │       └── nudge_renderer.py       # N1–N4 framing logic
 └── ui/
@@ -80,6 +84,8 @@ fedrl-client/
 
 ## API Endpoints
 
+All endpoints are exposed by the client API container (per client) and are versioned via the `SERVER_URL` constructed from `config/client_N.yaml` (`server_url + "/api/" + api_version`).
+
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/health` | Client status, algorithm, catalogue info |
@@ -87,9 +93,9 @@ fedrl-client/
 | POST | `/cart/add` | Add item to cart |
 | DELETE | `/cart/{id}` | Remove item from cart |
 | GET | `/catalogue` | All food items (optional `?category=`) |
-| GET | `/catalogue/categories` | All category names |
-| POST | `/interact` | Record accept/dismiss, update model |
-| GET | `/stats` | Interaction counts, sync status |
+| GET | `/catalogue/categories` | All category objects (`id`, `code`, `name`) |
+| POST | `/interact` | Record accept/dismiss, update model and log interaction |
+| GET | `/stats` | Interaction counts, sync status, backbone version |
 
 ---
 
