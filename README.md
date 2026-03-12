@@ -20,11 +20,24 @@ Edit `config/client_1.yaml` (and `client_2.yaml`, `client_3.yaml`) and set:
 - **`api_version`**: API version path segment (e.g. `v1`), used to build `SERVER_URL = server_url + "/api/" + api_version` inside the client.
 - Optional model/sync settings as documented in the config files.
 
-### 3. Build and run
+### 3. Build and run (production)
 
 ```bash
 docker compose up --build
 ```
+
+## Development workflow (live Vue hot reload)
+
+When you want to edit the frontend and see changes immediately, run the Vue dev server inside Docker while the API keeps running as normal.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up \
+  client_1_api client_2_api client_1_ui_dev client_2_ui_dev
+```
+
+Then open:
+- http://localhost:8001 (client 1)
+- http://localhost:8002 (client 2)
 
 ### Access clients from any device on the LAN
 

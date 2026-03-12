@@ -1,7 +1,7 @@
 # Client 2 configuration example
 
 client_id: client_2                     # Client ID must be unique (Same as in docker-compose.yml)
-server_url: http://192.168.1.102:8000   # FL aggregation server URL
+server_url: http://192.168.1.105:8000   # FL aggregation server URL
 api_version: v1                         # Server API version - Default: v1
 
 algorithm: thompson_sampling            # or "dqn"
