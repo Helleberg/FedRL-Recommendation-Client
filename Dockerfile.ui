@@ -1,0 +1,26 @@
+# Stage 1: build Vue TypeScript app
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+COPY ui/package.json ./
+RUN npm install
+
+COPY ui/ .
+
+ARG VITE_CLIENT_ID=client_1
+ENV VITE_CLIENT_ID=$VITE_CLIENT_ID
+# API URL is always /api — Nginx proxies it to the API container at runtime
+ENV VITE_API_URL=/api
+
+RUN npm run build
+
+# Stage 2: Nginx serves static files AND proxies /api → FastAPI container
+FROM nginx:1.27-alpine
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# API_HOST is injected at container start via environment variable
+# envsubst replaces $API_HOST in the template at runtime
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+
+EXPOSE 80

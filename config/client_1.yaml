@@ -1,0 +1,19 @@
+# Client 1 configuration example
+
+client_id: client_1                     # Client ID must be unique (Used inside docker-compose.yml)
+server_url: http://192.168.1.102:8000   # FL aggregation server URL
+api_version: v1                         # Server API version - Default: v1
+
+algorithm: thompson_sampling            # or "dqn"
+
+sync:
+  n_interactions: 10                    # Upload after this many interactions
+  t_seconds: 300                        # Upload after this many seconds
+
+model:
+  backbone_dim: 32                      # Must match server backbone config
+  cold_start_recs: 8                    # Round-robin nudges before exploiting
+
+ui:
+  session_prepopulate: true             # Pre-fill cart on session start
+  seed_item_ids: []                     # Leave empty to use first 5 catalogue items

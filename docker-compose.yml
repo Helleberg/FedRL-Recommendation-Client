@@ -1,0 +1,83 @@
+# Reusable base configs
+x-api-base: &api-base
+  build:
+    context: .
+    dockerfile: Dockerfile.api
+  restart: unless-stopped
+  networks:
+    - fedrl_net
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PORT MAPPING CONVENTION
+#   Client N  →  UI: 800N  (only port you need to open)
+#   Browser calls  http://<pi-ip>:8001/api/...
+#   Nginx proxies  /api/ → client_1_api:8000 (internal Docker network)
+#
+# PI_HOST is no longer needed — the browser never calls the API port directly.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # Client 1
+  client_1_api:
+    <<: *api-base
+    container_name: client_1_api
+    # API port only exposed for direct debugging — not needed by the UI
+    ports:
+      - "9001:8000"
+    volumes:
+      - ./data/client_1:/app/data
+      - ./config/client_1.yaml:/app/config/client.yaml:ro
+    environment:
+      - CLIENT_ID=client_1
+
+  client_1_ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+      args:
+        VITE_CLIENT_ID: client_1
+    container_name: client_1_ui
+    ports:
+      - "8001:80"
+    environment:
+      # Nginx proxies /api/ to this host:port on the internal Docker network
+      - API_HOST=client_1_api:8000
+    depends_on:
+      - client_1_api
+    restart: unless-stopped
+    networks:
+      - fedrl_net
+
+  # Client 2
+  client_2_api:
+    <<: *api-base
+    container_name: client_2_api
+    ports:
+      - "9002:8000"
+    volumes:
+      - ./data/client_2:/app/data
+      - ./config/client_2.yaml:/app/config/client.yaml:ro
+    environment:
+      - CLIENT_ID=client_2
+
+  client_2_ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+      args:
+        VITE_CLIENT_ID: client_2
+    container_name: client_2_ui
+    ports:
+      - "8002:80"
+    environment:
+      - API_HOST=client_2_api:8000
+    depends_on:
+      - client_2_api
+    restart: unless-stopped
+    networks:
+      - fedrl_net
+
+networks:
+  fedrl_net:
+    driver: bridge
