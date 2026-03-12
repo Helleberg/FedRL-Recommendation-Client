@@ -43,35 +43,38 @@ class ModelManager:
 
     # Inference
     def recommend(
-        self, context_vec: list[float], alternatives: list[dict]
+        self,
+        contexts: list[list[float]],
+        candidate_ids: list[str],
     ) -> dict | None:
         """
-        Given a context vector and candidate alternatives, return the best
-        (alternative, nudge_type) action tuple.
+        Given a list of (context, candidate_id) pairs, select the best candidate
+        and nudge using the backbone + local heads.
         """
-        if not alternatives:
+        if not contexts or not candidate_ids:
             return None
 
-        embedding = self.backbone.encode(context_vec).numpy()
-        nudge = self.nudge_head.select_nudge()
-        price_offset = 0.0
+        assert len(contexts) == len(candidate_ids), "contexts and candidate_ids must align"
 
-        best_item = None
+        nudge = self.nudge_head.select_nudge()
+        best_candidate_id: str | None = None
         best_score = float("-inf")
 
-        for alt in alternatives:
-            score = self.item_head.sample_score(alt["id"], embedding)
-            # Price sensitivity offset
-            price_delta = alt.get("price", 0.0) - context_vec[3] if len(context_vec) > 3 else 0.0
+        for ctx, cand_id in zip(contexts, candidate_ids):
+            embedding = self.backbone.encode(ctx).numpy()
+            item_score = self.item_head.sample_score(cand_id, embedding)
+            price_delta = ctx[10] - ctx[1] if len(ctx) > 10 else 0.0  # candidate_price - original_price
             p_offset = self.price_head.price_offset(price_delta)
-            total = score + p_offset
+            total = item_score + p_offset
             if total > best_score:
                 best_score = total
-                best_item = alt
-                price_offset = p_offset
+                best_candidate_id = cand_id
+
+        if best_candidate_id is None:
+            return None
 
         return {
-            "alternative": best_item,
+            "alternative_id": best_candidate_id,
             "nudge_type": nudge,
             "score": best_score,
         }

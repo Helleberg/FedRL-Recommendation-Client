@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from rl.model_manager import ModelManager
 from rl.context import ContextExtractor
 from rl.reward import compute_reward
+from rl.candidates import CandidateGenerator
 from nudges.nudge_renderer import NudgeRenderer
 from storage.catalogue import Catalogue
 from storage.models import FoodCategory, FoodItem, SubstitutionGroup
@@ -49,6 +50,7 @@ model_mgr = ModelManager(
     cold_start_recs=COLD_START_RECS,
 )
 context_extractor = ContextExtractor(catalogue)
+n_candidate_generator = CandidateGenerator(catalogue)
 nudge_renderer = NudgeRenderer()
 sync_agent = SyncAgent(
     server_url=SERVER_URL,
@@ -149,8 +151,13 @@ async def get_cart():
     enriched = []
     for cart_item in _cart:
         item_id = cart_item["id"]
-        ctx = context_extractor.build(item_id, _cart)
-        rec = model_mgr.recommend(ctx, catalogue.get_substitutes(item_id))
+        candidates = n_candidate_generator.generate(item_id)
+        candidate_ids = [cid for cid, _ in candidates]
+        contexts = [
+            context_extractor.build(item_id, cid, _cart, similarity_score=score)
+            for cid, score in candidates
+        ]
+        rec = model_mgr.recommend(contexts, candidate_ids)
         widget = nudge_renderer.render(rec, catalogue) if rec else None
         enriched.append({**cart_item, "recommendation": widget})
     return {"items": enriched, "client_id": CLIENT_ID}
@@ -203,6 +210,7 @@ async def record_interaction(body: InteractionBody):
     ctx = context_extractor.build(body.item_id, _cart)
     reward = compute_reward(body.action)
     model_mgr.update(ctx, body.alternative_id, body.nudge_type, reward)
+    context_extractor.record_outcome(body.action, reward)
     logger_db.log(
         context=ctx,
         item_id=body.item_id,
