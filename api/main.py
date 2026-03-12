@@ -38,6 +38,7 @@ ALGORITHM: str = cfg.get("algorithm", "thompson_sampling")
 COLD_START_RECS: int = cfg.get("model", {}).get("cold_start_recs", 8)
 BACKBONE_DIM: int = cfg.get("model", {}).get("backbone_dim", 32)
 
+
 # Singletons
 catalogue = Catalogue(server_url=SERVER_URL)
 logger_db = InteractionLogger(db_path="/app/data/interactions.db")
@@ -54,6 +55,7 @@ sync_agent = SyncAgent(
     client_id=CLIENT_ID,
     model_manager=model_mgr,
     interaction_logger=logger_db,
+    min_n_interactions_threshold=cfg.get("sync", {}).get("min_n_interactions", 1),
     n_interactions_threshold=cfg.get("sync", {}).get("n_interactions", 10),
     t_seconds_threshold=cfg.get("sync", {}).get("t_seconds", 300),
 )
@@ -65,9 +67,7 @@ async def lifespan(app: FastAPI):
     log.info("Starting client %s (algorithm=%s)", CLIENT_ID, ALGORITHM)
     await catalogue.fetch(fallback_to_cache=True)
     await sync_agent.check_for_newer_backbone()
-    
-    # TODO: Uncomment this when the sync agent is ready
-    # asyncio.create_task(sync_agent.run_loop())
+    asyncio.create_task(sync_agent.run_loop())
     yield
     log.info("Shutting down — attempting final backbone upload")
     await sync_agent.upload_backbone(reason="graceful_shutdown")

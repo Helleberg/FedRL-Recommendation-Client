@@ -5,6 +5,7 @@ The serialiser only ever exports backbone weights (never local head).
 from __future__ import annotations
 
 import gzip
+import base64
 import json
 import logging
 from pathlib import Path
@@ -24,14 +25,14 @@ class ModelManager:
     def __init__(
         self,
         backbone_dim: int = 32,
-        algorithm: str = "thompson_sampling",
+        algorithm: str = "ts",              # ts = Thompson Sampling, dqn = Deep Q-Network
         weights_dir: str = "/app/data",
         cold_start_recs: int = 8,
     ):
         self.backbone_dim = backbone_dim
         self.algorithm = algorithm
         self.weights_dir = Path(weights_dir)
-        self.backbone_version: str = "0"
+        self.backbone_version: int = 0
 
         self.backbone = BackboneEncoder(input_dim=CONTEXT_DIM, latent_dim=backbone_dim)
         self.item_head = ItemHead(latent_dim=backbone_dim)
@@ -92,25 +93,31 @@ class ModelManager:
         self._save_local_head()
 
     # Serialisation (backbone only — for federation)
-    def backbone_payload(self, n_k: int, client_id: str) -> bytes:
+    def backbone_payload(self, n_k: int, client_id: str) -> dict:
         """
-        Serialise ONLY backbone weights + interaction count to gzip+JSON bytes.
+        Serialise ONLY backbone weights + interaction count.
+        The outer payload is JSON; `backbone_weights` is a base64-encoded,
+        gzip-compressed JSON blob of the backbone state dict.
         Local head is NEVER included. (FR-4.5, NFR-5)
         """
         state = {k: v.tolist() for k, v in self.backbone.state_dict().items()}
-        payload = {
+        compressed_state = base64.b64encode(
+            gzip.compress(json.dumps(state).encode("utf-8"))
+        ).decode("utf-8")
+        payload: dict = {
             "client_id": client_id,
             "backbone_version": self.backbone_version,
             "interaction_count": n_k,
             "algorithm": self.algorithm,
-            "backbone_weights": state,
+            "backbone_weights": compressed_state,
         }
-        return gzip.compress(json.dumps(payload).encode())
+        return json.dumps(payload)
 
-    def load_global_backbone(self, data: bytes, new_version: str):
+    # Loads the global backbone weights from the server.
+    def load_global_backbone(self, compressed_backbone_weights: str, new_version: int):
         """Replace backbone weights from server payload. Local head untouched."""
-        payload = json.loads(gzip.decompress(data))
-        state = {k: torch.tensor(v) for k, v in payload["backbone_weights"].items()}
+        global_backbone = json.loads(gzip.decompress(base64.b64decode(compressed_backbone_weights)).decode("utf-8"))
+        state = {k: torch.tensor(v) for k, v in global_backbone.items()}
         self.backbone.load_state_dict(state)
         self.backbone_version = new_version
         self._save_backbone()
@@ -138,7 +145,7 @@ class ModelManager:
         if backbone_path.exists():
             ckpt = torch.load(backbone_path, map_location="cpu")
             self.backbone.load_state_dict(ckpt["state_dict"])
-            self.backbone_version = ckpt.get("version", "0")
+            self.backbone_version = ckpt.get("version", 0)
             log.info("Loaded backbone version %s", self.backbone_version)
 
         local_head_path = self.weights_dir / "local_head.json"
