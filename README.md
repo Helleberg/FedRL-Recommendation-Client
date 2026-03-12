@@ -13,17 +13,11 @@ Each client runs as a pair of Docker containers: a **FastAPI backend** (Python) 
 export PI_HOST=<pi-ip>   # replace "<pi-ip>" with your Pi's IP
 ```
 
-### 2. Create data directories
-
-```bash
-mkdir -p data/client_{1,2,3}
-```
-
-### 3. Edit server URL in configs
+### 2. Edit server URL in configs
 
 Edit `config/client_1.yaml` (and client_2, client_3) — set `server_url` to your FL server's IP.
 
-### 4. Build and run
+### 3. Build and run
 
 ```bash
 docker compose up --build
