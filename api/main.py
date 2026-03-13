@@ -7,16 +7,18 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from dataclasses import asdict
 
 import uvicorn
 import yaml
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from dataclasses import dataclass, field
 
 from rl.model_manager import ModelManager
 from rl.context import ContextExtractor
 from rl.reward import compute_reward
+from rl.candidates import CandidateGenerator
 from nudges.nudge_renderer import NudgeRenderer
 from storage.catalogue import Catalogue
 from storage.models import FoodCategory, FoodItem, SubstitutionGroup
@@ -38,6 +40,7 @@ ALGORITHM: str = cfg.get("algorithm", "thompson_sampling")
 COLD_START_RECS: int = cfg.get("model", {}).get("cold_start_recs", 8)
 BACKBONE_DIM: int = cfg.get("model", {}).get("backbone_dim", 32)
 
+
 # Singletons
 catalogue = Catalogue(server_url=SERVER_URL)
 logger_db = InteractionLogger(db_path="/app/data/interactions.db")
@@ -48,12 +51,14 @@ model_mgr = ModelManager(
     cold_start_recs=COLD_START_RECS,
 )
 context_extractor = ContextExtractor(catalogue)
+n_candidate_generator = CandidateGenerator(catalogue)
 nudge_renderer = NudgeRenderer()
 sync_agent = SyncAgent(
     server_url=SERVER_URL,
     client_id=CLIENT_ID,
     model_manager=model_mgr,
     interaction_logger=logger_db,
+    min_n_interactions_threshold=cfg.get("sync", {}).get("min_n_interactions", 1),
     n_interactions_threshold=cfg.get("sync", {}).get("n_interactions", 10),
     t_seconds_threshold=cfg.get("sync", {}).get("t_seconds", 300),
 )
@@ -65,9 +70,7 @@ async def lifespan(app: FastAPI):
     log.info("Starting client %s (algorithm=%s)", CLIENT_ID, ALGORITHM)
     await catalogue.fetch(fallback_to_cache=True)
     await sync_agent.check_for_newer_backbone()
-    
-    # TODO: Uncomment this when the sync agent is ready
-    # asyncio.create_task(sync_agent.run_loop())
+    asyncio.create_task(sync_agent.run_loop())
     yield
     log.info("Shutting down — attempting final backbone upload")
     await sync_agent.upload_backbone(reason="graceful_shutdown")
@@ -85,37 +88,33 @@ app.add_middleware(
 
 
 # Schemas
-class InteractionBody(BaseModel):
+@dataclass
+class InteractionBody:
     item_id: str
-    alternative_id: str
+    substitute_id: str
     nudge_type: str  # N1 | N2 | N3 | N4
     action: str      # accept | dismiss | ignore
 
-
-class CartItem(BaseModel):
-    id: str
-    name: str
-    category: str
+@dataclass
+class CartItem:
+    item: FoodItem
     quantity: int
-    price: float
-    co2e: float
-    sustainability_score: float
 
-
-class AddItemBody(BaseModel):
+@dataclass
+class AddItemBody:
     item_id: str
     quantity: int = 1
 
 
 # In-memory cart (per session)
-_cart: list[dict] = []
+_cart: list[CartItem] = []
 
 
-def _build_cart_item(item_id: str, quantity: int) -> dict:
+def _build_cart_item(item_id: str, quantity: int) -> CartItem:
     item = catalogue.get_item(item_id)
     if not item:
         raise HTTPException(status_code=404, detail=f"Item {item_id!r} not found")
-    return {**item, "quantity": quantity}
+    return CartItem(item=item, quantity=quantity)
 
 
 @app.on_event("startup")
@@ -128,7 +127,7 @@ async def prepopulate_cart():
         if not seed_ids:
             all_items = catalogue.get_all_items()
             seed_ids = [item["id"] for item in all_items[:5]]
-        _cart = [_build_cart_item(iid, 1) for iid in seed_ids if catalogue.get_item(iid) is not None]
+        _cart = [CartItem(item=catalogue.get_item(iid), quantity=1) for iid in seed_ids if catalogue.get_item(iid) is not None]
         log.info("Cart pre-populated with %d items", len(_cart))
 
 
@@ -147,21 +146,45 @@ async def health():
 @app.get("/cart")
 async def get_cart():
     enriched = []
-    for cart_item in _cart:
-        item_id = cart_item["id"]
-        ctx = context_extractor.build(item_id, _cart)
-        rec = model_mgr.recommend(ctx, catalogue.get_substitutes(item_id))
-        widget = nudge_renderer.render(rec, catalogue) if rec else None
-        enriched.append({**cart_item, "recommendation": widget})
+    if not _cart:
+        return {"items": enriched, "client_id": CLIENT_ID}
+
+    # For now, compute a recommendation for only one cart item.
+    # If the first item has no eligible substitutes, fall back to the next, etc.
+    recommended_idx: int | None = None
+    widget_for_idx: dict | None = None
+
+    for idx, cart_item in enumerate(_cart):
+        candidates = n_candidate_generator.generate(cart_item.item.id)
+        if not candidates:
+            continue
+
+        candidate_ids = [cid for cid, _ in candidates]
+        contexts = [
+            context_extractor.build(cart_item.item.id, cid, _cart, similarity_score=score)
+            for cid, score in candidates
+        ]
+        rec = model_mgr.recommend(contexts, candidate_ids)
+        if not rec:
+            continue
+
+        widget_for_idx = nudge_renderer.render(rec, cart_item.item, catalogue)
+        recommended_idx = idx
+        break
+
+    for idx, cart_item in enumerate(_cart):
+        item_dict = asdict(cart_item.item)
+        widget = widget_for_idx if recommended_idx is not None and idx == recommended_idx else None
+        enriched.append({**item_dict, "quantity": cart_item.quantity, "recommendation": widget})
     return {"items": enriched, "client_id": CLIENT_ID}
 
 
 @app.post("/cart/add")
 async def add_to_cart(body: AddItemBody):
     global _cart
-    existing = next((i for i in _cart if i["id"] == body.item_id), None)
+    existing = next((i for i in _cart if i.item.id == body.item_id), None)
     if existing:
-        existing["quantity"] += body.quantity
+        existing.quantity += body.quantity
     else:
         _cart.append(_build_cart_item(body.item_id, body.quantity))
     return {"ok": True, "cart_size": len(_cart)}
@@ -170,15 +193,15 @@ async def add_to_cart(body: AddItemBody):
 @app.delete("/cart/{item_id}")
 async def remove_from_cart(item_id: str):
     global _cart
-    _cart = [i for i in _cart if i["id"] != item_id]
+    _cart = [i for i in _cart if i.item.id != item_id]
     return {"ok": True}
 
 
 @app.get("/catalogue")
-async def get_catalogue(category: str | None = None):
+async def get_catalogue(category_id: str | None = None):
     items = catalogue.get_all_items()
-    if category:
-        items = [i for i in items if i["category"].lower() == category.lower()]
+    if category_id:
+        items = [i for i in items if i.category_id == category_id]
     return {"items": items, "version": catalogue.version}
 
 
@@ -202,11 +225,12 @@ async def get_categories():
 async def record_interaction(body: InteractionBody):
     ctx = context_extractor.build(body.item_id, _cart)
     reward = compute_reward(body.action)
-    model_mgr.update(ctx, body.alternative_id, body.nudge_type, reward)
+    model_mgr.update(ctx, body.substitute_id, body.nudge_type, reward)
+    context_extractor.record_outcome(body.action, reward)
     logger_db.log(
         context=ctx,
         item_id=body.item_id,
-        alternative_id=body.alternative_id,
+        alternative_id=body.substitute_id,
         nudge_type=body.nudge_type,
         action=body.action,
         reward=reward,
@@ -216,7 +240,7 @@ async def record_interaction(body: InteractionBody):
     if body.action == "accept":
         for ci in _cart:
             if ci["id"] == body.item_id:
-                replacement = catalogue.get_item(body.alternative_id)
+                replacement = catalogue.get_item(body.substitute_id)
                 if replacement:
                     ci.update({**replacement, "quantity": ci["quantity"]})
                 break

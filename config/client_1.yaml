@@ -1,12 +1,13 @@
 # Client 1 configuration example
 
 client_id: client_1                     # Client ID must be unique (Used inside docker-compose.yml)
-server_url: http://192.168.1.102:8000   # FL aggregation server URL
+server_url: http://192.168.1.105:8000   # FL aggregation server URL
 api_version: v1                         # Server API version - Default: v1
 
-algorithm: thompson_sampling            # or "dqn"
+algorithm: ts                           # ts = Thompson Sampling, dqn = Deep Q-Network
 
 sync:
+  min_n_interactions: 2                 # Minimum number of interactions before uploading (lowest acceptable value = 1)
   n_interactions: 10                    # Upload after this many interactions
   t_seconds: 300                        # Upload after this many seconds
 
