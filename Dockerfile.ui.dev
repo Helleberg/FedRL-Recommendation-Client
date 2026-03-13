@@ -1,0 +1,22 @@
+# Dev image for live frontend development (Vite + Vue)
+#
+# This image is used by docker-compose override (docker-compose.override.yml) to run
+# the Vite dev server inside Docker while still letting you edit files on your host.
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies (node_modules is persisted in a named Docker volume)
+COPY ui/package.json ui/package-lock.json* ./
+RUN npm install
+
+# Copy full frontend source (overridden by a bind mount in docker-compose.override.yml)
+COPY ui/ ./
+
+# Environment variable used by the app and Vite proxies.
+ARG VITE_CLIENT_ID=client_1
+ENV VITE_CLIENT_ID=$VITE_CLIENT_ID
+
+# Default command runs Vite dev server.
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]

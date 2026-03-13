@@ -13,25 +13,26 @@ import AppNav from '@/components/AppNav.vue'
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,400&family=DM+Sans:wght@300;400;500&display=swap');
-
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
 :root {
   --cream: #f5f0e8;
   --parchment: #ede5d4;
   --bark: #3d2b1f;
-  --moss: #3a5c3a;
+  --blue: #417fd0;
   --sage: #7a9e7e;
   --fern: #5c7f5c;
   --rust: #b85c2a;
   --wheat: #c9a96e;
   --sky: #5b8fa8;
   --mist: #d4e4ec;
-  --text: #2a1f16;
-  --text-muted: #7a6a58;
-  --border: #d6c9b4;
+  --text: #17181b;
+  --text-muted: #434346;
+  --border: #c5c5c5;
   --shadow: rgba(61, 43, 31, 0.1);
   --radius: 12px;
   --radius-lg: 20px;
+  --bg-gradient-start: #d4e4ec;
+  --bg-gradient-end: #d4f0d4;
 }
 
 *,
@@ -48,11 +49,15 @@ html {
 }
 
 body {
-  font-family: 'DM Sans', sans-serif;
-  background-color: var(--cream);
+  font-family: 'Outfit', sans-serif;
   color: var(--text);
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
+  background-color: #ffffff;
+  background: #52b3d9;
+  background: linear-gradient(165deg, rgba(82, 179, 217, 1) 0%, rgba(57, 212, 122, 0.79) 30%, rgba(255, 255, 255, 1) 55%);
+  background-position: 0 0;
+  background-attachment: fixed;
 }
 
 .app-shell {
@@ -63,7 +68,6 @@ body {
 
 .app-content {
   flex: 1;
-  padding: 1.5rem 1rem 5rem;
   max-width: 480px;
   margin: 0 auto;
   width: 100%;

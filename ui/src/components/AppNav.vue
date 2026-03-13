@@ -10,6 +10,15 @@ const isActive = (name: string) => route.name === name
 
 <template>
   <nav class="bottom-nav">
+    <RouterLink :to="{ name: 'home' }" class="nav-item" :class="{ active: isActive('home') }">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        </svg>
+      </span>
+      <span class="nav-label">Home</span>
+    </RouterLink>
+
     <RouterLink :to="{ name: 'cart' }" class="nav-item" :class="{ active: isActive('cart') }">
       <span class="nav-icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -53,7 +62,7 @@ const isActive = (name: string) => route.name === name
   display: flex;
   justify-content: space-around;
   align-items: center;
-  background: rgba(245, 240, 232, 0.95);
+  background: #ffffff;
   backdrop-filter: blur(12px);
   border-top: 1.5px solid var(--border);
   padding: 0.5rem 1rem calc(0.5rem + env(safe-area-inset-bottom));

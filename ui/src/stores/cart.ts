@@ -10,13 +10,13 @@ export const useCartStore = defineStore('cart', () => {
     const clientId = ref<string>('')
 
     const totalPrice = computed(() =>
-        items.value.reduce((sum, i) => sum + i.price * i.quantity, 0)
+        items.value.reduce((sum: number, i: CartItem) => sum + i.price * i.quantity, 0)
     )
     const totalCo2e = computed(() =>
-        items.value.reduce((sum, i) => sum + i.co2e * i.quantity, 0)
+        items.value.reduce((sum: number, i: CartItem) => sum + i.co2e * i.quantity, 0)
     )
     const itemCount = computed(() =>
-        items.value.reduce((sum, i) => sum + i.quantity, 0)
+        items.value.reduce((sum: number, i: CartItem) => sum + i.quantity, 0)
     )
 
     async function fetchCart() {
