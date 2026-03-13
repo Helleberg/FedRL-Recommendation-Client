@@ -74,7 +74,7 @@ class ModelManager:
             return None
 
         return {
-            "alternative_id": best_candidate_id,
+            "substitute_id": best_candidate_id,
             "nudge_type": nudge,
             "score": best_score,
         }
