@@ -5,6 +5,7 @@ import type {
     HealthResponse,
     StatsResponse,
     InteractionPayload,
+    Recommendation,
 } from '@/types'
 
 const api = axios.create({
@@ -27,8 +28,8 @@ export const addToCart = (item_id: string, quantity = 1) =>
 export const removeFromCart = (item_id: string) =>
     api.delete(`/cart/${item_id}`).then(r => r.data)
 
-export const getCatalogue = (category?: string): Promise<CatalogueResponse> => {
-    const params = category ? { category } : {}
+export const getCatalogue = (categoryId?: string): Promise<CatalogueResponse> => {
+    const params = categoryId ? { category_id: categoryId } : {}
     return api.get<CatalogueResponse>('/catalogue', { params }).then(r => r.data)
 }
 
@@ -40,3 +41,6 @@ export const recordInteraction = (payload: InteractionPayload) =>
 
 export const getStats = (): Promise<StatsResponse> =>
     api.get<StatsResponse>('/stats').then(r => r.data)
+
+export const checkRecommendation = (item_uuid: string): Promise<Recommendation | null> =>
+    api.get<Recommendation | null>(`/recommendation/${item_uuid}`).then(r => r.data)

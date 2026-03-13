@@ -1,99 +1,90 @@
 <template>
     <ViewHeader>
         <template #title>Shopping List</template>
+        <template #subtitle>{{ cart.itemCount }} items · €{{ cart.totalPrice.toFixed(2) }}</template>
     </ViewHeader>
+
+    <section class="cart-view">
+        <div v-if="cart.error" class="error">
+            {{ cart.error }}
+        </div>
+
+        <div v-else-if="cartItems.length === 0" class="empty-state">
+            <div class="empty-title">Your cart is empty</div>
+            <div class="empty-sub">
+                Add items from the catalogue to start building your shopping list.
+            </div>
+            <div>
+                <button class="cart-button" @click="$router.push({ name: 'catalogue' })">
+                    Browse catalogue
+                </button>
+            </div>
+        </div>
+
+        <div v-else class="item-list">
+            <FoodItemCard
+                v-for="item in cartItems"
+                :key="item.id"
+                :item="item"
+                mode="remove"
+                :is-removing="removingId === item.id"
+                @remove-from-cart="remove"
+                @view-details="handleViewDetails"
+            />
+
+            <!-- Add more items -->
+            <div class="add-items">
+                <button class="add-more" @click="$router.push({ name: 'catalogue' })">
+                    <span class="plus-icon">+</span>
+                    Add items
+                </button>
+            </div>
+        </div>
+    </section>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useCartStore } from '@/stores/cart'
 import { useRouter } from 'vue-router'
+import FoodItemCard from '@/components/FoodItemCard.vue'
+import type { CartItem, FoodItem } from '@/types'
 import ViewHeader from '@/components/ViewHeader.vue'
 
 const cart = useCartStore()
-
-// log all cart items
-console.log(cart.items)
-
+const cartItems = computed<CartItem[]>(() => cart.items)
 const router = useRouter()
+const removingId = ref<string | null>(null)
 
-onMounted(() => cart.fetchCart())
+async function remove(itemId: string) {
+    if (removingId.value) return
+
+    removingId.value = itemId
+    try {
+        await cart.removeItem(itemId)
+    } finally {
+        removingId.value = null
+    }
+}
+
+function onCheckout() {
+    // Placeholder: extend with real checkout flow.
+    router.push({ name: 'home' })
+}
+
+function handleViewDetails(item: FoodItem & { quantity?: number }) {
+    // For now, do nothing or perhaps open drawer if needed
+    console.log('View details for', item)
+}
+
+onMounted(() => {
+    cart.fetchCart()
+})
 </script>
 
 <style scoped>
-.cart-view {
-    padding-bottom: 1rem;
-}
-
-.view-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1.5px solid var(--border);
-}
-
-.view-title {
-    font-family: 'Fraunces', serif;
-    font-size: 1.75rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-}
-
-.view-sub {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    margin-top: 0.2rem;
-}
-
-.cart-summary {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.2rem;
-}
-
-.co2e-total {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.8rem;
-    color: var(--moss);
-    font-weight: 500;
-}
-
-.price-total {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--bark);
-}
-
 .item-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-/* Skeletons */
-.skeletons {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.skeleton-card {
-    height: 100px;
-    background: linear-gradient(90deg, var(--parchment) 25%, #ede5d4 50%, var(--parchment) 75%);
-    background-size: 200% 100%;
-    border-radius: var(--radius-lg);
-    animation: shimmer 1.4s infinite;
-}
-
-@keyframes shimmer {
-    to {
-        background-position: -200% 0;
-    }
+    margin-top: 1rem;
 }
 
 /* Empty state */
@@ -106,74 +97,90 @@ onMounted(() => cart.fetchCart())
     gap: 0.75rem;
 }
 
-.empty-icon {
-    font-size: 2.5rem;
-}
-
 .empty-title {
-    font-family: 'Fraunces', serif;
-    font-size: 1.1rem;
+    font-size: 1.4rem;
     font-weight: 500;
 }
 
 .empty-sub {
     color: var(--text-muted);
-    font-size: 0.875rem;
+    font-size: 1rem;
+    margin-bottom: 1rem;
 }
 
 .error {
     color: var(--rust);
 }
 
-/* Checkout bar */
-.checkout-bar {
-    position: fixed;
-    bottom: 64px;
-    left: 0;
-    right: 0;
-    padding: 0 1rem;
-    z-index: 50;
-    pointer-events: none;
-}
-
-.checkout-inner {
-    max-width: 480px;
-    margin: 0 auto;
-    background: var(--bark);
-    color: #fff;
-    border-radius: var(--radius-lg);
-    padding: 0.75rem 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    pointer-events: all;
-    box-shadow: 0 8px 24px rgba(61, 43, 31, 0.25);
-}
-
-.checkout-line {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    font-size: 0.8rem;
-    opacity: 0.85;
-}
-
-.checkout-price {
-    font-size: 1.1rem;
+.cart-button {
+    background: var(--blue);
+    color: #ffffff;
+    padding: 0.75rem 2.5rem;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
     font-weight: 600;
-    opacity: 1;
+    cursor: pointer;
+}
+
+/* Add items button */
+.add-items {
+    padding: 1rem;
+    text-align: center;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: var(--radius-lg);
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-primary {
+    background: var(--bark);
     color: var(--wheat);
 }
 
-.checkout-btn {
-    background: var(--wheat);
-    color: var(--bark);
-    font-weight: 600;
-    flex-shrink: 0;
+.btn-primary:hover {
+    background: #3d2b1f;
 }
 
-.checkout-btn:hover {
-    background: #dbb97e;
+.plus-icon {
+    font-size: 1.2rem;
+}
+
+.add-items {
+    display: flex;
+    justify-content: center;
+}
+
+.add-more {
+    margin-top: 1rem;
+    background: none;
+    border: none;
+    text-decoration: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.add-more > span {
+    display: inline-flex;
+    align-items: center;
+    color: white;
+    justify-content: center;
+    background: var(--blue);
+    width: 32px;
+    height: 32px;
+    border-radius: 50px;
 }
 </style>

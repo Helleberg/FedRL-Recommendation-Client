@@ -27,6 +27,9 @@
         <span class="food-card__unit">
           {{ item.serving_size_g }} g
         </span>
+        <span v-if="mode === 'remove' && item.quantity" class="food-card__quantity">
+          × {{ item.quantity }}
+        </span>
       </div>
 
       <span class="food-card__co2" :class="co2Class">
@@ -34,14 +37,16 @@
       </span>
     </div>
 
-    <!-- RIGHT: ADD BUTTON -->
+    <!-- RIGHT: ACTION BUTTON -->
     <div class="food-card__actions">
       <button
-        class="add-button"
-        @click.stop="handleAddToCart"
-        aria-label="Add to cart"
+        class="action-button"
+        :class="mode === 'add' ? 'btn-green' : 'btn-red'"
+        @click.stop="mode === 'add' ? handleAddToCart() : handleRemoveFromCart()"
+        :disabled="buttonDisabled"
+        :aria-label="buttonAriaLabel"
       >
-        +
+        {{ buttonLabel }}
       </button>
     </div>
   </article>
@@ -53,21 +58,50 @@ import placeholderImage from "@/assets/images/food_placeholder.png"
 import { computed } from "vue";
 
 const props = defineProps<{
-  item: FoodItem
+  item: FoodItem & { quantity?: number }
+  mode: 'add' | 'remove'
+  isAdding?: boolean
+  isRemoving?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: "add-to-cart", item: FoodItem): void
+  (e: "remove-from-cart", itemId: string): void
   (e: "view-details", item: FoodItem): void
 }>()
 
 function handleAddToCart() {
+  if (props.isAdding) return
   emit("add-to-cart", props.item)
+}
+
+function handleRemoveFromCart() {
+  if (props.isRemoving) return
+  emit("remove-from-cart", props.item.id)
 }
 
 function handleCardClick() {
   emit("view-details", props.item)
 }
+
+const buttonLabel = computed(() => {
+  if (props.mode === 'add') {
+    if (props.isAdding) return "…"
+    return "+"
+  } else {
+    if (props.isRemoving) return "Removing…"
+    return "-"
+  }
+})
+
+const buttonDisabled = computed(() => {
+  return (props.mode === 'add' && props.isAdding) || (props.mode === 'remove' && props.isRemoving)
+})
+
+const buttonAriaLabel = computed(() => {
+  if (props.mode === 'add') return props.isAdding ? 'Adding' : 'Add to cart'
+  return props.isRemoving ? 'Removing' : 'Remove from cart'
+})
 
 const co2Class = computed(() => {
   const co2 = props.item.co2_kg_per_serving
@@ -132,6 +166,12 @@ const co2Class = computed(() => {
   color: #666;
 }
 
+.food-card__quantity {
+  font-size: 0.85rem;
+  color: #666;
+  margin-left: 8px;
+}
+
 .food-card__price {
   font-weight: 600;
 }
@@ -167,25 +207,34 @@ const co2Class = computed(() => {
   justify-content: center;
 }
 
-.add-button {
-  width: 28px;
+.action-button {
+  min-width: 28px;
   height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 8px;
 
-  border-radius: 50%;
+  border-radius: 14px;
   border: none;
 
   background: #5d9ad7;
   color: white;
-  font-size: 22px;
+  font-size: 14px;
   line-height: 1;
 
   cursor: pointer;
 }
 
-.add-button:hover {
+.btn-red {
+  background: #e53e3e;
+}
+
+.btn-green {
+  background: var(--blue);
+}
+
+.action-button:hover {
   background: #356595;
 }
 </style>

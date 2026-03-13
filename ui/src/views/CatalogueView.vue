@@ -32,6 +32,8 @@
                         v-for="item in filteredItems"
                         :key="item.id"
                         :item="item"
+                        mode="add"
+                        :is-adding="addingId === item.id"
                         @add-to-cart="handleAddToCart"
                         @view-details="handleViewDetails"
                     />
@@ -43,6 +45,7 @@
     <FoodItemDrawer
         v-model="isDrawerOpen"
         :item="selectedItem"
+        @add-to-cart="handleDrawerAddToCart"
     />
 </template>
 
@@ -79,8 +82,39 @@ const filteredItems = computed(() => {
     return catalogue.items.filter((item: FoodItem) => item.category_id === Number(selectedCategory.value))
 })
 
-function handleAddToCart(item: FoodItem) {
-  console.log("Add to cart:", item)
+async function handleAddToCart(item: FoodItem) {
+  if (addingId.value) return
+
+  addingId.value = item.id
+  try {
+    await cart.addItem(item)
+    addedId.value = item.id
+    setTimeout(() => {
+      if (addedId.value === item.id) {
+        addedId.value = null
+      }
+    }, 1200)
+  } finally {
+    addingId.value = null
+  }
+}
+
+async function handleDrawerAddToCart(payload: { item: FoodItem; quantity: number }) {
+  if (addingId.value) return
+
+  addingId.value = payload.item.id
+  try {
+    await cart.addItem(payload.item, payload.quantity)
+    addedId.value = payload.item.id
+    setTimeout(() => {
+      if (addedId.value === payload.item.id) {
+        addedId.value = null
+      }
+    }, 1200)
+  } finally {
+    addingId.value = null
+    isDrawerOpen.value = false
+  }
 }
 
 function handleViewDetails(item: FoodItem) {

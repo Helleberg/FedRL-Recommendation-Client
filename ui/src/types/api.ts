@@ -18,14 +18,8 @@ export type CatalogueResponse = {
   version: string
 }
 
-export type CartItem = {
-  id: string
-  name: string
-  category: string
+export type CartItem = FoodItem & {
   quantity: number
-  price: number
-  co2e: number
-  sustainability_score: number
   recommendation?: unknown
 }
 
@@ -36,7 +30,7 @@ export type CartResponse = {
 
 export type InteractionPayload = {
   item_id: string
-  alternative_id: string
+  substitute_id: string
   nudge_type: string
   action: InteractionAction
 }
@@ -44,6 +38,18 @@ export type InteractionPayload = {
 export type InteractionAction = 'accept' | 'dismiss' | 'ignore'
 
 export type NudgeType = 'N1' | 'N2' | 'N3' | 'N4' | string
+
+export type Recommendation = {
+  type: NudgeType
+  headline: string
+  body: string
+  icon: string
+  substitute_id: string
+  substitute_name: string
+  substitute_co2e: number
+  substitute_price: number
+  substitute_category: number
+}
 
 // Re-export shared types
 import type { FoodItem } from './FoodItem'

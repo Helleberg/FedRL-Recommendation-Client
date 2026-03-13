@@ -99,7 +99,7 @@ const isActive = (name: string) => route.name === name
   position: absolute;
   top: -6px;
   right: -8px;
-  background: var(--rust);
+  background: var(--blue);
   color: #fff;
   font-size: 0.65rem;
   font-weight: 600;

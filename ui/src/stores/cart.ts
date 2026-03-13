@@ -10,10 +10,10 @@ export const useCartStore = defineStore('cart', () => {
     const clientId = ref<string>('')
 
     const totalPrice = computed(() =>
-        items.value.reduce((sum: number, i: CartItem) => sum + i.price * i.quantity, 0)
+        items.value.reduce((sum: number, i: CartItem) => sum + i.price_eur * i.quantity, 0)
     )
     const totalCo2e = computed(() =>
-        items.value.reduce((sum: number, i: CartItem) => sum + i.co2e * i.quantity, 0)
+        items.value.reduce((sum: number, i: CartItem) => sum + i.co2_kg_per_serving * i.quantity, 0)
     )
     const itemCount = computed(() =>
         items.value.reduce((sum: number, i: CartItem) => sum + i.quantity, 0)
@@ -34,8 +34,8 @@ export const useCartStore = defineStore('cart', () => {
         }
     }
 
-    async function addItem(item: FoodItem) {
-        await addToCart(item.id)
+    async function addItem(item: FoodItem, quantity = 1) {
+        await addToCart(item.id, quantity)
         await fetchCart()
     }
 
@@ -46,11 +46,11 @@ export const useCartStore = defineStore('cart', () => {
 
     async function interact(
         itemId: string,
-        alternativeId: string,
+        substituteId: string,
         nudgeType: NudgeType,
         action: InteractionAction
     ) {
-        await recordInteraction({ item_id: itemId, alternative_id: alternativeId, nudge_type: nudgeType, action })
+        await recordInteraction({ item_id: itemId, substitute_id: substituteId, nudge_type: nudgeType, action })
         // Refresh cart — accepted swaps will be reflected server-side
         await fetchCart()
     }

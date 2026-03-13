@@ -101,6 +101,15 @@
             </div>
           </section>
 
+          <!-- Nudge component -->
+          <NudgeComponent
+            v-if="showNudge && recommendation"
+            :recommendation="recommendation"
+            :item-id="item.id"
+            @accept="handleNudgeAccept"
+            @reject="handleNudgeReject"
+          />
+
           <!-- Card 3: climate stats -->
           <section class="content-card stats-card">
             <h4 class="stats-title">Climate impact</h4>
@@ -198,8 +207,11 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue"
-import type { FoodItem } from "@/types"
+import type { FoodItem, Recommendation } from "@/types"
 import placeholderImage from "@/assets/images/food_placeholder.png"
+import NudgeComponent from "./NudgeComponent.vue"
+import { checkRecommendation } from "@/api/client"
+import { useCatalogueStore } from "@/stores/catalogue"
 
 const props = defineProps<{
   modelValue: boolean
@@ -220,6 +232,8 @@ const currentY = ref(0)
 const dragOffset = ref(0)
 
 const quantity = ref(1)
+const recommendation = ref<Recommendation | null>(null)
+const showNudge = ref(false)
 
 const CLOSE_THRESHOLD = 120
 const ANIMATION_MS = 250
@@ -285,6 +299,23 @@ function handleAddToCart() {
     item: props.item,
     quantity: quantity.value
   })
+}
+
+function handleNudgeAccept(substituteId: string) {
+  const catalogueStore = useCatalogueStore()
+  const substituteItem = catalogueStore.items.find(item => item.id === substituteId)
+  if (substituteItem) {
+    emit("add-to-cart", {
+      item: substituteItem,
+      quantity: quantity.value
+    })
+    // Close the drawer after adding
+    startClose()
+  }
+}
+
+function handleNudgeReject() {
+  showNudge.value = false
 }
 
 function resetDrag() {
@@ -381,8 +412,20 @@ watch(
 
 watch(
   () => props.item,
-  () => {
+  async () => {
     quantity.value = 1
+    if (props.item) {
+      try {
+        const rec = await checkRecommendation(props.item.id)
+        recommendation.value = rec
+        showNudge.value = rec !== null
+      } catch (error) {
+        console.error('Failed to check recommendation:', error)
+        showNudge.value = false
+      }
+    } else {
+      showNudge.value = false
+    }
   }
 )
 
