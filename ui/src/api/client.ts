@@ -43,4 +43,4 @@ export const getStats = (): Promise<StatsResponse> =>
     api.get<StatsResponse>('/stats').then(r => r.data)
 
 export const checkRecommendation = (item_uuid: string): Promise<Recommendation | null> =>
-    api.get<Recommendation | null>(`/recommendation/${item_uuid}`).then(r => r.data)
+    api.get<{recommendation: Recommendation}>(`/recommendation/${item_uuid}`).then(r => r.data.recommendation).catch(() => null)

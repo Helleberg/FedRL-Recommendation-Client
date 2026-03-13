@@ -12,9 +12,9 @@
     <div class="nudge-alternative">
       <div class="alternative-info">
         <span class="alternative-name">{{ recommendation.substitute_name }}</span>
-        <span class="alternative-price">€{{ recommendation.substitute_price.toFixed(2) }}</span>
+        <span class="alternative-price">€{{ recommendation.substitute_price }}</span>
       </div>
-      <span class="alternative-co2">{{ recommendation.substitute_co2e.toFixed(3) }} kg CO₂e</span>
+      <span class="alternative-co2">{{ recommendation.substitute_co2e }} kg CO₂e</span>
     </div>
 
     <div class="nudge-actions">

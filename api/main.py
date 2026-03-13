@@ -238,7 +238,7 @@ async def get_categories():
 async def get_recommendation(item_id: str):
     widget = _compute_recommendation_for_item(item_id)
     if widget is None:
-        raise HTTPException(status_code=404, detail=f"No recommendation found for item {item_id!r}")
+        raise HTTPException(status_code=204, detail=f"No recommendation found for item {item_id!r}")
     return {"recommendation": widget}
 
 @app.post("/interact")
