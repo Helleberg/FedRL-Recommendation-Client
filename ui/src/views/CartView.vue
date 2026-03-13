@@ -1,74 +1,24 @@
+<template>
+    <ViewHeader>
+        <template #title>Shopping List</template>
+    </ViewHeader>
+</template>
+
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useCartStore } from '@/stores/cart'
-import CartItemCard from '@/components/CartItemCard.vue'
 import { useRouter } from 'vue-router'
+import ViewHeader from '@/components/ViewHeader.vue'
 
 const cart = useCartStore()
+
+// log all cart items
+console.log(cart.items)
+
 const router = useRouter()
 
 onMounted(() => cart.fetchCart())
 </script>
-
-<template>
-    <div class="cart-view">
-        <!-- Header -->
-        <header class="view-header">
-            <div>
-                <h1 class="view-title">Your Cart</h1>
-                <p class="view-sub" v-if="cart.clientId">{{ cart.clientId }}</p>
-            </div>
-            <div class="cart-summary">
-                <span class="co2e-total">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14"
-                        height="14">
-                        <path
-                            d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12c0-2.76 1.12-5.26 2.93-7.07C6.74 3.12 9.24 2 12 2z" />
-                    </svg>
-                    {{ cart.totalCo2e.toFixed(2) }} kg CO₂e
-                </span>
-                <span class="price-total">{{ cart.totalPrice.toFixed(2) }} kr</span>
-            </div>
-        </header>
-
-        <!-- Loading skeleton -->
-        <div v-if="cart.loading" class="skeletons">
-            <div v-for="n in 4" :key="n" class="skeleton-card" />
-        </div>
-
-        <!-- Error -->
-        <div v-else-if="cart.error" class="empty-state error">
-            <p>{{ cart.error }}</p>
-            <button class="btn btn-primary" @click="cart.fetchCart()">Retry</button>
-        </div>
-
-        <!-- Empty cart -->
-        <div v-else-if="cart.items.length === 0" class="empty-state">
-            <div class="empty-icon">🛒</div>
-            <p class="empty-title">Your cart is empty</p>
-            <p class="empty-sub">Browse the catalogue to add sustainable foods</p>
-            <button class="btn btn-primary" @click="router.push({ name: 'catalogue' })">
-                Browse catalogue
-            </button>
-        </div>
-
-        <!-- Cart items -->
-        <div v-else class="item-list">
-            <CartItemCard v-for="(item, i) in cart.items" :key="item.id" :item="item" :index="i" />
-        </div>
-
-        <!-- Footer: checkout summary bar -->
-        <div v-if="cart.items.length > 0" class="checkout-bar">
-            <div class="checkout-inner">
-                <div class="checkout-line">
-                    <span>{{ cart.itemCount }} items</span>
-                    <span class="checkout-price">{{ cart.totalPrice.toFixed(2) }} kr</span>
-                </div>
-                <button class="btn btn-primary checkout-btn">Checkout</button>
-            </div>
-        </div>
-    </div>
-</template>
 
 <style scoped>
 .cart-view {
