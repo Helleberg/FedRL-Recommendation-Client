@@ -36,17 +36,11 @@ Output dimension must match CONTEXT_DIM in model_manager.py (28).
 """
 from __future__ import annotations
 
-import datetime
-import math
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from storage.catalogue import Catalogue
-
-CONTEXT_DIM = 28
+from rl.config import CONTEXT_DIM, MAX_SESSION_HISTORY
+from storage.catalogue import Catalogue
 
 class ContextExtractor:
-    def __init__(self, catalogue: "Catalogue"):
+    def __init__(self, catalogue: Catalogue):
         self.catalogue = catalogue
         self._session_history: list[dict] = []  # recent interactions
 
@@ -145,6 +139,6 @@ class ContextExtractor:
             outcome = 0.0
 
         self._session_history.append({"action": action, "reward": reward, "outcome": outcome})
-        # Keep last 20 interactions in memory
-        if len(self._session_history) > 20:
+        # Keep a bounded session history in memory
+        if len(self._session_history) > MAX_SESSION_HISTORY:
             self._session_history.pop(0)

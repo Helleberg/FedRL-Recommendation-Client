@@ -15,19 +15,23 @@ import torch
 
 from rl.backbone import BackboneEncoder
 from rl.local_head import ItemHead, PriceHead, NudgeHead
+from rl.config import (
+    CONTEXT_DIM,
+    DEFAULT_BACKBONE_DIM,
+    DEFAULT_ALGORITHM,
+    DEFAULT_COLD_START_RECS,
+)
 
 log = logging.getLogger("fedrl.model")
-
-CONTEXT_DIM = 28  # Must match ContextExtractor output length
 
 
 class ModelManager:
     def __init__(
         self,
-        backbone_dim: int = 32,
-        algorithm: str = "ts",              # ts = Thompson Sampling, dqn = Deep Q-Network
+        backbone_dim: int = DEFAULT_BACKBONE_DIM,
+        algorithm: str = DEFAULT_ALGORITHM,              # ts = Thompson Sampling, dqn = Deep Q-Network
         weights_dir: str = "/app/data",
-        cold_start_recs: int = 8,
+        cold_start_recs: int = DEFAULT_COLD_START_RECS,
     ):
         self.backbone_dim = backbone_dim
         self.algorithm = algorithm
