@@ -117,6 +117,31 @@ def _build_cart_item(item_id: str, quantity: int) -> CartItem:
     return CartItem(item=item, quantity=quantity)
 
 
+def _compute_recommendation_for_item(item_id: str) -> dict | None:
+    """
+    Compute a single recommendation widget for a given original item ID,
+    using the current cart and RL model.
+    """
+    candidates = n_candidate_generator.generate(item_id)
+    if not candidates:
+        return None
+
+    candidate_ids = [cid for cid, _ in candidates]
+    contexts = [
+        context_extractor.build(item_id, cid, _cart, similarity_score=score)
+        for cid, score in candidates
+    ]
+    rec = model_mgr.recommend(contexts, candidate_ids)
+    if not rec:
+        return None
+
+    original_item = catalogue.get_item(item_id)
+    if original_item is None:
+        return None
+
+    return nudge_renderer.render(rec, original_item, catalogue)
+
+
 @app.on_event("startup")
 async def prepopulate_cart():
     """Pre-populate cart with a fixed item set if configured."""
@@ -155,22 +180,11 @@ async def get_cart():
     widget_for_idx: dict | None = None
 
     for idx, cart_item in enumerate(_cart):
-        candidates = n_candidate_generator.generate(cart_item.item.id)
-        if not candidates:
-            continue
-
-        candidate_ids = [cid for cid, _ in candidates]
-        contexts = [
-            context_extractor.build(cart_item.item.id, cid, _cart, similarity_score=score)
-            for cid, score in candidates
-        ]
-        rec = model_mgr.recommend(contexts, candidate_ids)
-        if not rec:
-            continue
-
-        widget_for_idx = nudge_renderer.render(rec, cart_item.item, catalogue)
-        recommended_idx = idx
-        break
+        widget = _compute_recommendation_for_item(cart_item.item.id)
+        if widget is not None:
+            widget_for_idx = widget
+            recommended_idx = idx
+            break
 
     for idx, cart_item in enumerate(_cart):
         item_dict = asdict(cart_item.item)
@@ -220,10 +234,26 @@ async def get_categories():
     ]
     return {"categories": payload, "version": catalogue.version}
 
+@app.get("/recommendation/{item_id}")
+async def get_recommendation(item_id: str):
+    widget = _compute_recommendation_for_item(item_id)
+    if widget is None:
+        raise HTTPException(status_code=404, detail=f"No recommendation found for item {item_id!r}")
+    return {"recommendation": widget}
 
 @app.post("/interact")
 async def record_interaction(body: InteractionBody):
-    ctx = context_extractor.build(body.item_id, _cart)
+    # Rebuild the context for the specific (original, candidate) pair the user saw.
+    # Try to recover the similarity score used at recommendation time, if available.
+    # TODO: This is a hack and should be improved.
+    candidates = n_candidate_generator.generate(body.item_id)
+    sim_score = 0.0
+    for cid, score in candidates:
+        if cid == body.substitute_id:
+            sim_score = score
+            break
+
+    ctx = context_extractor.build(body.item_id, body.substitute_id, _cart, similarity_score=sim_score)
     reward = compute_reward(body.action)
     model_mgr.update(ctx, body.substitute_id, body.nudge_type, reward)
     context_extractor.record_outcome(body.action, reward)
@@ -239,10 +269,10 @@ async def record_interaction(body: InteractionBody):
     # If action was accept — swap item in cart
     if body.action == "accept":
         for ci in _cart:
-            if ci["id"] == body.item_id:
+            if ci.item.id == body.item_id:
                 replacement = catalogue.get_item(body.substitute_id)
                 if replacement:
-                    ci.update({**replacement, "quantity": ci["quantity"]})
+                    ci.item = replacement
                 break
 
     await sync_agent.maybe_trigger_upload()
